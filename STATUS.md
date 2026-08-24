@@ -2,7 +2,7 @@
 title: "STATUS - BarTab"
 created: 2026-08-24
 modified: 2026-08-24
-version: 1.3
+version: 1.4
 author: Claude Fable 5 (claude-fable-5)
 tags:
 ---
@@ -15,26 +15,30 @@ A macOS menu bar app that shows Justin how much of things he has left — disk s
 
 ## Stage
 
-PRD drafted
+Built (v1 complete, in daily use)
 
 ## Health
 
-🟢 PRD drafted, fresh-context audited, and revised 2026-08-24; amended same day to v1.1 at Justin's direction (bar contents now resource-selectable — Disk/Claude/Both × three formats — with color following the shown resources, worst-of when both). All interrogation decisions recorded in the PRD. No code yet, by design — kickoff waits on Justin's PRD review.
+🟢 v1 built and installed. All five PRD phases complete; acceptance is 10 pass, 0 fail, 3 not verified (each needs a logout, a machine sleep, or a live Claude token). Running from /Applications and registered as a login item. Disk half works fully; the Claude tile is correct but shows "unavailable" until the stored OAuth token is refreshed.
 
 ## Waiting on Me
 
-- [ ] **Read `PRD.md` and approve it or mark up changes** (~15 min)
-      - unblocks: the kickoff checklist (GitHub repo, scaffold) and Phase 1 (disk core in the menu bar)
+- [ ] **Free up disk space — you are at ~13 GB of 494 GB** (~30 min)
+      - unblocks: nothing in this project, but it is the actual problem BarTab was built to warn about, and it is already red
+- [ ] **Drag BarTab out of Ice's hidden section so the icon is actually visible** (~1 min)
+      - unblocks: the entire point of an always-visible gauge; Ice hides new status items by default
+- [ ] **Re-authenticate Claude Code (`/login` in an interactive terminal), then ask for the spike re-run** (~5 min)
+      - unblocks: the Claude tile showing real numbers, and the decision on whether plan usage is durable enough to keep
 
 ## Next Up
 
-1. Kickoff checklist per the Build Guide: create `nikolausj1/BarTab` (public), `.gitignore` (with `Project Build Guide.md`, `_inbox/`, `_review/`), scaffold via XcodeGen, verify a local build from `/tmp`.
-2. Phase 1: disk core — menu bar icon with live state + flyout volume gauges (exit: screenshot, number matches `df` within 1 GB).
-3. Phase 3 spike (any time after kickoff): prove the unofficial Claude usage endpoint from a standalone script before any tile code.
+1. Live-fire the Claude tile once the token is fresh: re-run `scripts/claude-usage-spike.sh`, confirm the field shape matches what Phase 4 parses, and screenshot the OK state with real numbers.
+2. Decide the Claude durability question with real evidence (see `_review/phase3-spike/DURABILITY.md`): accept the limitation, or add a clearly-labelled local approximation.
+3. Optional polish: app icon, and a settings pane worth looking at rather than merely correct.
 
 ## Biggest Risk
 
-The Claude usage tile rides on an unofficial endpoint (the one Claude Code's `/usage` uses) that could change or break at any time. The PRD contains this by decision: disk gates v1, and the tile degrades to 'stale'/'unavailable' rather than blocking anything. The scope-creep risk Oracle flagged at genesis is retired — the PRD locks v1 to gauges-only with culprit analysis explicitly deferred.
+The Claude tile may be honest but useless. Its endpoint is unofficial, and the stored token was found 19 days stale despite active Claude Code use, so the tile could sit in "unavailable" indefinitely. Disk was always the feature that had to work, and it does. The risk is disappointment, not breakage.
 
 ---
 
