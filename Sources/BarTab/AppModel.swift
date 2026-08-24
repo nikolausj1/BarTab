@@ -2,10 +2,13 @@
 //
 // Drives the bar/flyout from DiskResource + AppSettings, on the PRD §6.6
 // cadence: a 30-second timer, plus an immediate refresh whenever the flyout
-// opens. Phase 1 only wires up Disk; the Claude branch of the worst-of
-// computation is left for Phase 4 (see recomputeBarState below) — there's
-// no Settings picker yet to select barResources away from its .disk
-// default, so it can't be reached in this phase.
+// opens. Phase 2 adds the Settings window, so barResources can now reach
+// .claude and .both — but ClaudeUsageResource itself doesn't exist until
+// Phase 4, so Claude is wired to always vote `.unavailable` for now (see
+// recomputeBarState below): its number renders "—" and it never drives the
+// bar's color, exactly per PRD §6.1's "shown resource that is unavailable
+// ... does not vote". Phase 4 only needs to replace that `.unavailable`
+// with a real ClaudeUsageResource read.
 
 import Foundation
 import Combine
@@ -59,7 +62,13 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func recomputeBarState() {
+    /// Recomputes `barState` from the current settings and last-read
+    /// resource data. Called after every refresh, and also called directly
+    /// by the Settings window (via `SettingsViewModel`'s `onChange`) after
+    /// any successful settings edit, so the bar updates immediately without
+    /// waiting for the next 30s timer tick or a relaunch (PRD §10 phase 2
+    /// exit criterion).
+    func recomputeBarState() {
         var states: [ResourceState] = []
 
         if settings.barResources == .disk || settings.barResources == .both {
@@ -73,8 +82,15 @@ final class AppModel: ObservableObject {
                 states.append(.unavailable)
             }
         }
-        // .claude / worst-of-with-claude: Phase 4. Unreachable in Phase 1
-        // since barResources has no UI to leave its .disk default.
+
+        if settings.barResources == .claude || settings.barResources == .both {
+            // ClaudeUsageResource doesn't exist until Phase 4. Claude always
+            // votes .unavailable this phase: it never drives the bar color,
+            // and its number always renders "—" (MenuBarIconView). This
+            // means Claude-only renders the Unreadable state, and Both's
+            // color is driven by disk alone — both exactly per PRD §6.1.
+            states.append(.unavailable)
+        }
 
         barState = aggregateBarState(states)
     }

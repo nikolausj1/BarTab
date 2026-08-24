@@ -1,14 +1,15 @@
 // FlyoutView.swift
 //
-// PRD §6.3: title row + gear menu (Settings… disabled stub this phase,
-// Quit BarTab functional — the only quit affordance since LSUIElement means
-// no Dock icon), then one row per qualifying volume. Refreshes immediately
-// on open, per §6.6.
+// PRD §6.3: title row + gear menu (Settings… opens the Settings window as
+// of Phase 2, via the `openSettings` environment action; Quit BarTab is
+// the only quit affordance since LSUIElement means no Dock icon), then one
+// row per qualifying volume. Refreshes immediately on open, per §6.6.
 
 import SwiftUI
 
 struct FlyoutView: View {
     @ObservedObject var model: AppModel
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -17,8 +18,10 @@ struct FlyoutView: View {
                     .font(.headline)
                 Spacer()
                 Menu {
-                    Button("Settings…") {}
-                        .disabled(true) // Phase 2
+                    Button("Settings…") {
+                        openSettings()
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
                     Divider()
                     Button("Quit BarTab") {
                         NSApplication.shared.terminate(nil)
