@@ -54,6 +54,10 @@ final class AppModel: ObservableObject {
         // — needed for the Phase 1 df cross-check.
         setvbuf(stdout, nil, _IOLBF, 0)
 
+        // PRD §6.5 (locked): always-on login item, no setting. Best-effort,
+        // idempotent, logs-only on failure -- see LoginItem.swift.
+        LoginItem.registerIfNeeded()
+
         // A cache-restored snapshot (PRD §8) is a prior session's
         // successful fetch -- render it immediately as Stale rather than
         // Loading, so a relaunch doesn't lose the last-known numbers.
@@ -71,14 +75,17 @@ final class AppModel: ObservableObject {
             }
         }
 
+        #if DEBUG
         if let fixture = debugClaudeFixture {
             applyDebugClaudeFixture(named: fixture)
-        } else {
-            Task { await refreshClaude() }
-            claudeTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
-                Task { @MainActor in
-                    await self?.refreshClaude()
-                }
+            return
+        }
+        #endif
+
+        Task { await refreshClaude() }
+        claudeTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.refreshClaude()
             }
         }
     }
@@ -216,11 +223,25 @@ final class AppModel: ObservableObject {
 
         if settings.barResources == .claude || settings.barResources == .both {
             // Locked (PRD §6.1): only the weekly meter votes, never the
-            // 5-hour session meter. `lastWeeklyPercentRemaining` is nil
-            // whenever `seven_day` is absent/unreadable, which correctly
-            // makes Claude not-vote even if other meters rendered in the
-            // tile.
-            if let remaining = claudeResource.lastWeeklyPercentRemaining {
+            // 5-hour session meter. `claudeWeeklyPercentRemaining` (this
+            // model's own @Published mirror of `claudeResource
+            // .lastWeeklyPercentRemaining`, kept in sync by every real
+            // `refreshClaude()`) is nil whenever `seven_day` is
+            // absent/unreadable, which correctly makes Claude not-vote even
+            // if other meters rendered in the tile.
+            //
+            // Phase 5 fix: this used to read `claudeResource
+            // .lastWeeklyPercentRemaining` directly, which is
+            // behavior-identical on every real fetch path but silently
+            // couldn't be driven by the Phase 4 DEBUG fixture (which only
+            // ever set the @Published mirror, not the private resource
+            // object) -- so the bar's *color* vote for Claude was
+            // impossible to exercise without a live, unexpired token, even
+            // though the flyout tile's state and the bar's *number* text
+            // both already read the mirror correctly. Reading the mirror
+            // here too closes that gap with no change to any real-fetch
+            // behavior.
+            if let remaining = claudeWeeklyPercentRemaining {
                 states.append(resourceState(
                     value: remaining,
                     warningThreshold: Double(settings.claudeWarningPercent),

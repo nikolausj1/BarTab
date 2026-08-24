@@ -34,15 +34,40 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Picker("Format", selection: Binding(
-                    get: { viewModel.barFormat },
-                    set: { viewModel.barFormat = $0 }
-                )) {
-                    Text("Icon only").tag(AppSettings.BarFormat.iconOnly)
-                    Text("Number only").tag(AppSettings.BarFormat.numberOnly)
-                    Text("Icon + number").tag(AppSettings.BarFormat.iconAndNumber)
+                // Phase 5 polish fix: this picker's own `Picker("Format",
+                // ...)` label rendered nothing -- not merely hidden, but a
+                // genuinely zero-width AXStaticText (confirmed via the
+                // accessibility tree: `Format pos=(196,547) size=(0,96)`,
+                // vs. "Bar shows"' correctly sized `size=(62,16)`).
+                // Root cause, isolated by swapping the two Pickers' order
+                // and re-measuring both times: it tracks the "Format"
+                // picker specifically, not row position -- its three
+                // segment labels ("Icon only" / "Number only" / "Icon +
+                // number") are long enough that, at this window's 360pt
+                // width, Form's automatic label-column sizing has no room
+                // left for an inline label and silently collapses it to
+                // zero rather than wrapping or overflowing. Rather than
+                // widen the window or shorten those segment labels (both
+                // reviewed and screenshotted in Phase 2), this stacks an
+                // explicit, plain `Text("Format")` caption above the
+                // picker instead of asking Form to fit it beside the
+                // picker -- same row height budget, no competition for
+                // horizontal space, and it's guaranteed to render because
+                // it's a real, independently-sized view, not a value Form
+                // computes and can collapse.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Format")
+                    Picker("Format", selection: Binding(
+                        get: { viewModel.barFormat },
+                        set: { viewModel.barFormat = $0 }
+                    )) {
+                        Text("Icon only").tag(AppSettings.BarFormat.iconOnly)
+                        Text("Number only").tag(AppSettings.BarFormat.numberOnly)
+                        Text("Icon + number").tag(AppSettings.BarFormat.iconAndNumber)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
             }
 
             Section("Disk Thresholds (GB free)") {
