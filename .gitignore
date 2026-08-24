@@ -1,0 +1,20 @@
+# Shared doc is referenced from Dropbox, never copied/committed
+Project Build Guide.md
+
+# Working channels between Justin and Claude (Build Guide convention)
+_inbox/
+_review/
+
+# XcodeGen output — project.yml is the source of truth
+*.xcodeproj
+
+# Build products live in /tmp, but belt-and-suspenders
+build/
+DerivedData/
+
+# Secrets and env
+.env
+*.env
+
+# macOS noise
+.DS_Store
