@@ -18,3 +18,6 @@ DerivedData/
 
 # macOS noise
 .DS_Store
+
+# XcodeGen output
+Generated-Info.plist

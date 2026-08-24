@@ -1,0 +1,26 @@
+name: BarTab
+options:
+  bundleIdPrefix: com.levelup
+configs:
+  Debug: debug
+  Release: release
+targets:
+  BarTab:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/BarTab
+    info:
+      path: Generated-Info.plist
+      properties:
+        LSUIElement: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.levelup.bartab
+        DEVELOPMENT_TEAM: 6A4J2GTB6F
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_HARDENED_RUNTIME: false

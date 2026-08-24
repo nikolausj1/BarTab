@@ -1,0 +1,67 @@
+// FlyoutView.swift
+//
+// PRD §6.3: title row + gear menu (Settings… disabled stub this phase,
+// Quit BarTab functional — the only quit affordance since LSUIElement means
+// no Dock icon), then one row per qualifying volume. Refreshes immediately
+// on open, per §6.6.
+
+import SwiftUI
+
+struct FlyoutView: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("BarTab")
+                    .font(.headline)
+                Spacer()
+                Menu {
+                    Button("Settings…") {}
+                        .disabled(true) // Phase 2
+                    Divider()
+                    Button("Quit BarTab") {
+                        NSApplication.shared.terminate(nil)
+                    }
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
+
+            Divider()
+
+            volumesSection
+        }
+        .padding(12)
+        .frame(width: 280)
+        .task {
+            await model.refresh()
+        }
+    }
+
+    @ViewBuilder
+    private var volumesSection: some View {
+        switch model.diskSnapshot.status {
+        case .unavailable:
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Boot Volume")
+                    .font(.subheadline)
+                Text("free space unreadable")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        case .ok, .stale:
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(model.diskVolumes, id: \.name) { volume in
+                    VolumeRow(
+                        volume: volume,
+                        warningThresholdGB: model.settings.warningThresholdGB,
+                        criticalThresholdGB: model.settings.criticalThresholdGB
+                    )
+                }
+            }
+        }
+    }
+}
