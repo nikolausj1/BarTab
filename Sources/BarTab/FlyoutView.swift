@@ -3,7 +3,8 @@
 // PRD §6.3: title row + gear menu (Settings… opens the Settings window as
 // of Phase 2, via the `openSettings` environment action; Quit BarTab is
 // the only quit affordance since LSUIElement means no Dock icon), then one
-// row per qualifying volume. Refreshes immediately on open, per §6.6.
+// row per qualifying volume, then the Claude usage tile (Phase 4). Both
+// resources refresh immediately on open, per §6.6.
 
 import SwiftUI
 
@@ -36,6 +37,10 @@ struct FlyoutView: View {
             Divider()
 
             volumesSection
+
+            Divider()
+
+            ClaudeTileView(model: model)
         }
         .padding(12)
         .frame(width: 280)

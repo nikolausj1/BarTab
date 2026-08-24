@@ -16,12 +16,14 @@
 //     correction) and Phase 2 doesn't touch it, only which glyph name
 //     feeds it.
 //   - Number, when `barFormat` is numberOnly/iconAndNumber. Disk's number
-//     is strict free GB ("47 GB"); Claude's is always "—" this phase
-//     (ClaudeUsageResource doesn't exist until Phase 4 — see AppModel).
-//     Both shows "47 GB · —". Whenever the bar's overall state is
-//     Unreadable, the number collapses to a single "—" regardless of
-//     which resource(s) are shown (PRD §6.1's table), never a per-resource
-//     breakdown.
+//     is strict free GB ("47 GB"); Claude's number is weekly percent
+//     remaining ("62%", PRD §6.2), sourced from
+//     `model.claudeWeeklyPercentRemaining` (Phase 4) and rendering "—"
+//     whenever that's nil (weekly meter absent/unreadable — matches it not
+//     voting on bar state either). Both shows "47 GB · 62%". Whenever the
+//     bar's overall state is Unreadable, the number collapses to a single
+//     "—" regardless of which resource(s) are shown (PRD §6.1's table),
+//     never a per-resource breakdown.
 //
 // Text color: measured directly (Phase 2 screenshot review), a colored
 // SwiftUI `Text(...).foregroundColor(...)` does NOT survive MenuBarExtra's
@@ -127,17 +129,19 @@ struct MenuBarIconView: View {
         case .disk:
             return diskFreeText
         case .claude:
-            // Unreachable while barState != .unreadable this phase (Claude
-            // always votes .unavailable — see AppModel.recomputeBarState),
-            // kept defensive for when Phase 4 wires a real fetch in.
-            return "—"
+            return claudePercentText
         case .both:
-            return "\(diskFreeText) · —"
+            return "\(diskFreeText) · \(claudePercentText)"
         }
     }
 
     private var diskFreeText: String {
         guard let freeGB = model.diskVolumes.first?.freeGB else { return "—" }
         return "\(freeGB) GB"
+    }
+
+    private var claudePercentText: String {
+        guard let remaining = model.claudeWeeklyPercentRemaining else { return "—" }
+        return "\(Int(remaining.rounded()))%"
     }
 }
