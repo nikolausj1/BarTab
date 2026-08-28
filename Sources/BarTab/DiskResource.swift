@@ -40,7 +40,14 @@ final class DiskResource: Resource {
     /// failed.
     private(set) var lastBootFreeGB: Int?
 
-    private let bootURL = URL(fileURLWithPath: "/")
+    /// Deliberately a fresh URL per access, never a stored one.
+    /// `URL.resourceValues(forKeys:)` CACHES what it reads onto the URL
+    /// instance, so a long-lived URL returns its first reading forever. That
+    /// froze the menu bar on its launch value while the timer fired correctly
+    /// every 30 seconds underneath — the app reported 12 GB for four days
+    /// against a real 21 GB. Any volume URL used for a repeated measurement
+    /// must be constructed fresh at the point of reading.
+    private var bootURL: URL { URL(fileURLWithPath: "/") }
 
     func refresh() async -> ResourceSnapshot {
         do {

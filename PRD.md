@@ -2,7 +2,7 @@
 title: "BarTab - Product Requirements Document"
 created: 2026-08-24
 modified: 2026-08-24
-version: 1.1
+version: 1.2
 author: Claude Fable 5 (claude-fable-5)
 tags:
 ---
@@ -13,10 +13,12 @@ tags:
 |---|---|
 | **Product** | BarTab - a menu bar readout of how much he has left, disk first |
 | **Platform** | macOS (menu bar only, no Dock icon, no main window) |
-| **Status** | v1.1 PRD - agreed 2026-08-24 (amended same day) |
+| **Status** | v1.2 PRD - agreed 2026-08-24, corrected 2026-08-28 |
 | **Companion docs** | `Project Build Guide.md` (accounts, stack, deployment - follow it, do not restate it) |
 
 ## Revision Notes
+
+**v1.2 (2026-08-28):** Corrects §6.6, which was wrong in a way that broke the product in the field. It claimed timers could simply "rely on system timer coalescing." The app ran four days and displayed 12 GB against a real 21 GB. The true cause was not the timer at all — `URL.resourceValues` caches onto the URL instance, so a stored volume URL returns its first reading forever. §6.6 and §9 now state the requirement directly.
 
 **v1.1 (2026-08-24):** Bar contents made resource-selectable (Disk/Claude/Both × three formats) so BarTab stays useful if disk stops being the scarce resource. Bar color now follows the shown resource(s), worst-of when both are shown. Claude weekly thresholds added. Replaces v1.0's four display modes and its disk-only color invariant.
 
@@ -176,7 +178,8 @@ BarTab registers itself via `SMAppService` on first run so it launches automatic
 
 - Disk: every 30 seconds, plus immediately whenever the flyout opens.
 - Claude usage: every 5 minutes, plus immediately whenever the flyout opens.
-- No custom sleep/wake scheduling: timers simply rely on system timer coalescing and naturally pause while the Mac sleeps, then resume on wake.
+- Volume URLs must be constructed fresh at each reading. `URL.resourceValues(forKeys:)` caches its results onto the URL instance, so a stored URL silently reports its first measurement forever — the bar freezes while the timer keeps firing correctly underneath. This is a correctness requirement, not an optimisation.
+- Timers are scheduled in the run loop's `.common` modes, and the app opts out of App Nap via `beginActivity(options: .userInitiatedAllowingIdleSystemSleep)` — deliberately still allowing the Mac itself to sleep. On `NSWorkspace.didWakeNotification` both resources refresh immediately and both timers are rebuilt, so no reading can outlive a sleep.
 
 ## 7. Visual and Design Spec
 

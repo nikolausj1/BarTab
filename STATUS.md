@@ -1,8 +1,8 @@
 ---
 title: "STATUS - BarTab"
 created: 2026-08-24
-modified: 2026-08-24
-version: 1.4
+modified: 2026-08-28
+version: 1.5
 author: Claude Fable 5 (claude-fable-5)
 tags:
 ---
@@ -25,8 +25,7 @@ Built (v1 complete, in daily use)
 
 - [ ] **Free up disk space — you are at ~13 GB of 494 GB** (~30 min)
       - unblocks: nothing in this project, but it is the actual problem BarTab was built to warn about, and it is already red
-- [ ] **Drag BarTab out of Ice's hidden section so the icon is actually visible** (~1 min)
-      - unblocks: the entire point of an always-visible gauge; Ice hides new status items by default
+- [x] ~~**Drag BarTab out of Ice's hidden section so the icon is actually visible**~~ **DONE 2026-08-28.** The gauge is out of Ice's hidden section and visible in the menu bar. (updated via Oracle at Justin's direction, 2026-08-28)
 - [ ] **Re-authenticate Claude Code (`/login` in an interactive terminal), then ask for the spike re-run** (~5 min)
       - unblocks: the Claude tile showing real numbers, and the decision on whether plan usage is durable enough to keep
 
@@ -66,6 +65,20 @@ The Claude tile may be honest but useless. Its endpoint is unofficial, and the s
 
 ## Lessons
 
+- **`URL.resourceValues(forKeys:)` CACHES onto the URL instance, so any stored
+  URL used for repeated measurement silently returns its first reading
+  forever.** This shipped as BarTab's worst possible bug: a disk gauge that
+  confidently displayed a stale number. It ran four days showing 12 GB against
+  a real 21 GB. Everything around it was healthy — the 30-second timer fired
+  on schedule, the view layer was wired correctly, the arithmetic was right —
+  so every plausible suspect was innocent and the reading was still wrong.
+  Construct the URL fresh at each read, or call `removeAllCachedResourceValues()`.
+  **The bug survived five phases of verification because every screenshot was
+  taken just after a relaunch, which is exactly when a caching bug is
+  invisible.** Any always-on display needs at least one test that changes the
+  underlying value and watches the SAME running instance follow it.
+
+
 Candidates for Oracle to vet and promote into the shared Build Guide. **There is
 still no macOS platform section in the Build Guide; the first three below are
 the beginning of one.**
@@ -81,17 +94,17 @@ the beginning of one.**
   repro app, which made the false conclusion *more* convincing, not less.
   **Recipe:** before capturing any menu bar UI, `osascript -e 'tell application
   "Ice" to quit'`, capture, then `open -a Ice`. Or capture within the rehide
-  interval. Check `defaults read com.jordanbaird.Ice` for the current settings.
+  interval. Check `defaults read com.jordanbaird.Ice` for the current settings. (promoted to Build Guide v10.0, 2026-08-27)
 
 - **`print()` from a GUI app is block-buffered, not line-buffered, when stdout is
   piped rather than attached to a TTY.** A startup diagnostic print will not
   appear until the process exits, which reads as "the app never got there."
   Call `setvbuf(stdout, nil, _IOLBF, 0)` early if a launched-and-piped app is
-  expected to emit progress.
+  expected to emit progress. (promoted to Build Guide v10.0, 2026-08-27)
 
 - **Reading another app's Keychain item requires an unsandboxed app**, and the
   first read raises a one-time consent prompt per item. "Always Allow" makes it
-  permanent and silent thereafter.
+  permanent and silent thereafter. (promoted to Build Guide v10.0, 2026-08-27)
 
 - **Claude Code's OAuth token in the Keychain does not necessarily stay fresh.**
   The generic-password item `Claude Code-credentials` holds `claudeAiOauth`
@@ -102,13 +115,13 @@ the beginning of one.**
   data. Any project reading plan-usage this way must treat "expired" as a
   routine steady state, not an edge case. Note also that ~31 sibling items named
   `Claude Code-credentials-<hash>` exist; they hold only `mcpOAuth` connector
-  data, not the account token.
+  data, not the account token. (reviewed by Oracle 2026-08-27, not promoted: too narrow to recur outside this project)
 
 - **There is no official Anthropic API for SUBSCRIPTION plan usage limits.** The
   Admin/Usage & Cost APIs report organization API-key spend, which is a
   different thing; Pro/Max plan consumption is not exposed by them. Anything
   needing the 5-hour/weekly meters is using an unofficial endpoint and should
-  be designed to degrade.
+  be designed to degrade. (reviewed by Oracle 2026-08-27, not promoted: too narrow to recur outside this project)
 
 - **Brief credential-touching subagents with an explicit allowlist, not a
   purpose.** A research worker told to enumerate Keychain items "metadata only,
@@ -116,4 +129,4 @@ the beginning of one.**
   unrelated third-party items (MCP connector tokens for Notion, Linear, Slack,
   Atlassian) to inspect their structure. Nothing was written to disk or output,
   but the material entered its context. State the exact item name it may read
-  and forbid `-w` on anything else.
+  and forbid `-w` on anything else. (promoted to Build Guide v10.0, 2026-08-27)

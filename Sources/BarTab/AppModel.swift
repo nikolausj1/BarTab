@@ -13,6 +13,7 @@
 
 import Foundation
 import Combine
+import AppKit
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -69,11 +70,9 @@ final class AppModel: ObservableObject {
 
         Task { await refreshDisk() }
 
-        diskTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                await self?.refreshDisk()
-            }
-        }
+        startDiskTimer()
+        preventAppNap()
+        observeWake()
 
         #if DEBUG
         if let fixture = debugClaudeFixture {
@@ -83,10 +82,65 @@ final class AppModel: ObservableObject {
         #endif
 
         Task { await refreshClaude() }
-        claudeTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                await self?.refreshClaude()
-            }
+        startClaudeTimer()
+    }
+
+
+    // MARK: - Staying current (PRD §6.6)
+    //
+    // A background LSUIElement app is a prime App Nap target, and a napped
+    // process stops firing timers entirely. Left alone, the bar silently
+    // freezes on whatever number it last read — observed in the field showing
+    // 12 GB after four days when the disk actually had 21 GB. Three defences,
+    // because any one of them alone has been seen to fail:
+    //   1. schedule timers in .common modes rather than .default,
+    //   2. tell the system this process must not be napped (while still
+    //      allowing the Mac itself to sleep normally),
+    //   3. refresh and rebuild the timers on every wake.
+
+    private var activityToken: NSObjectProtocol?
+
+    private func startDiskTimer() {
+        diskTimer?.invalidate()
+        let t = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refreshDisk() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        diskTimer = t
+    }
+
+    private func startClaudeTimer() {
+        claudeTimer?.invalidate()
+        let t = Timer(timeInterval: 300, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refreshClaude() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        claudeTimer = t
+    }
+
+    /// Opt out of App Nap for the process lifetime. `.userInitiatedAllowingIdleSystemSleep`
+    /// deliberately does NOT include `.idleSystemSleepDisabled` — this is a laptop, and a
+    /// disk gauge has no business keeping it awake.
+    private func preventAppNap() {
+        guard activityToken == nil else { return }
+        activityToken = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep],
+            reason: "Keep menu bar gauges current")
+    }
+
+    /// Refresh immediately on wake and rebuild both timers, so a stale reading
+    /// can never outlive one sleep.
+    private func observeWake() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.startDiskTimer()
+                    self.startClaudeTimer()
+                    await self.refreshDisk()
+                    await self.refreshClaude()
+                }
         }
     }
 
