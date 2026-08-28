@@ -23,7 +23,7 @@ Built (v1 complete, in daily use)
 
 ## Waiting on Me
 
-- [ ] **Free up disk space — you are at ~13 GB of 494 GB** (~30 min)
+- [ ] **Free up disk space — you are at ~21 GB of 494 GB** (~30 min)
       - unblocks: nothing in this project, but it is the actual problem BarTab was built to warn about, and it is already red
 - [x] ~~**Drag BarTab out of Ice's hidden section so the icon is actually visible**~~ **DONE 2026-08-28.** The gauge is out of Ice's hidden section and visible in the menu bar. (updated via Oracle at Justin's direction, 2026-08-28)
 - [ ] **Re-authenticate Claude Code (`/login` in an interactive terminal), then ask for the spike re-run** (~5 min)
@@ -65,6 +65,10 @@ The Claude tile may be honest but useless. Its endpoint is unofficial, and the s
 
 ## Lessons
 
+Candidates for Oracle to vet and promote into the shared Build Guide. **There is
+still no macOS platform section in the Build Guide; the first three below are
+the beginning of one.**
+
 - **`URL.resourceValues(forKeys:)` CACHES onto the URL instance, so any stored
   URL used for repeated measurement silently returns its first reading
   forever.** This shipped as BarTab's worst possible bug: a disk gauge that
@@ -77,11 +81,6 @@ The Claude tile may be honest but useless. Its endpoint is unofficial, and the s
   taken just after a relaunch, which is exactly when a caching bug is
   invisible.** Any always-on display needs at least one test that changes the
   underlying value and watches the SAME running instance follow it.
-
-
-Candidates for Oracle to vet and promote into the shared Build Guide. **There is
-still no macOS platform section in the Build Guide; the first three below are
-the beginning of one.**
 
 - **A menu-bar manager (Ice, Bartender) hides new status items OFF-SCREEN, and
   screenshot verification reads that as "the icon renders nothing."** Justin runs
