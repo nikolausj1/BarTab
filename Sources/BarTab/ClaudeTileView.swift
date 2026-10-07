@@ -43,6 +43,14 @@ struct ClaudeTileView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
 
+            case .disabledAccessDenied:
+                Text("Off")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("Turn on \u{201C}Show Claude usage\u{201D} in Settings to use it.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
             case .unavailableNoCredentials:
                 unavailableText(ClaudeUsageResource.ReasonText.noCredentials)
 

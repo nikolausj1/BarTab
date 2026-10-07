@@ -2,7 +2,7 @@
 title: "BarTab - Product Requirements Document"
 created: 2026-08-24
 modified: 2026-08-24
-version: 1.2
+version: 1.3
 author: Claude Fable 5 (claude-fable-5)
 tags:
 ---
@@ -13,10 +13,12 @@ tags:
 |---|---|
 | **Product** | BarTab - a menu bar readout of how much he has left, disk first |
 | **Platform** | macOS (menu bar only, no Dock icon, no main window) |
-| **Status** | v1.2 PRD - agreed 2026-08-24, corrected 2026-08-28 |
+| **Status** | v1.3 PRD - agreed 2026-08-24, corrected 2026-10-07 |
 | **Companion docs** | `Project Build Guide.md` (accounts, stack, deployment - follow it, do not restate it) |
 
 ## Revision Notes
+
+**v1.3 (2026-10-07):** The Claude half became a nuisance in use: it re-raised the macOS Keychain consent prompt every five minutes, including after the user explicitly declined, and did so while the bar was set to disk alone so nothing was displaying the result. Three changes. A declined prompt is now a permanent answer, not a transient failure. The Claude timer runs only when the bar is actually showing Claude; otherwise the tile fetches on flyout open alone. And a `claudeUsageEnabled` master switch (§6.4) guarantees that when the feature is off, nothing reads the Keychain at all, so no prompt is possible.
 
 **v1.2 (2026-08-28):** Corrects §6.6, which was wrong in a way that broke the product in the field. It claimed timers could simply "rely on system timer coalescing." The app ran four days and displayed 12 GB against a real 21 GB. The true cause was not the timer at all — `URL.resourceValues` caches onto the URL instance, so a stored volume URL returns its first reading forever. §6.6 and §9 now state the requirement directly.
 
@@ -149,6 +151,7 @@ Each volume row shows: volume name, a gauge bar colored by the same warning/crit
 | Loading | First fetch since launch, no cached snapshot yet | "Loading Claude usage…" |
 | OK | Most recent fetch succeeded | Live gauges as described above |
 | Stale | Most recent fetch failed, but a prior snapshot exists | The cached gauges, labeled "as of \<time of last successful fetch\>" |
+| Off | `claudeUsageEnabled` is false, including after a declined Keychain prompt | "Off" + "Turn on \u{201C}Show Claude usage\u{201D} in Settings to use it." Nothing reads the Keychain in this state. |
 | Unavailable — no credentials | Keychain item missing or unreadable | "Claude usage unavailable" + one-line reason |
 | Unavailable — expired token | Token present but the endpoint rejects it | "Claude usage unavailable" + "open Claude Code to refresh sign-in" |
 | Unavailable — endpoint dead | Endpoint unreachable or erroring, no cached snapshot to fall back to | "Claude usage unavailable" + one-line reason |
@@ -177,7 +180,7 @@ BarTab registers itself via `SMAppService` on first run so it launches automatic
 ### 6.6 Refresh cadence (locked)
 
 - Disk: every 30 seconds, plus immediately whenever the flyout opens.
-- Claude usage: every 5 minutes, plus immediately whenever the flyout opens.
+- Claude usage: every 5 minutes **only while the bar is displaying Claude** (`barResources` is Claude or Both), plus immediately whenever the flyout opens. With the bar on disk alone, nothing displays the value between flyout openings, so a background poll would buy nothing while risking a Keychain prompt each time. No poll of any kind runs while `claudeUsageEnabled` is false.
 - Volume URLs must be constructed fresh at each reading. `URL.resourceValues(forKeys:)` caches its results onto the URL instance, so a stored URL silently reports its first measurement forever — the bar freezes while the timer keeps firing correctly underneath. This is a correctness requirement, not an optimisation.
 - Timers are scheduled in the run loop's `.common` modes, and the app opts out of App Nap via `beginActivity(options: .userInitiatedAllowingIdleSystemSleep)` — deliberately still allowing the Mac itself to sleep. On `NSWorkspace.didWakeNotification` both resources refresh immediately and both timers are rebuilt, so no reading can outlive a sleep.
 
@@ -202,6 +205,7 @@ No mockup exists; this spec is the full visual reference. Where a rendering choi
 | `barFormat` | String (raw value of an enum: `iconOnly` \| `numberOnly` \| `iconAndNumber`) | `iconOnly` |
 | `warningThresholdGB` | Int | 50 |
 | `criticalThresholdGB` | Int | 20 |
+| `claudeUsageEnabled` | Bool | `true` (set to `false` permanently on a declined Keychain prompt) |
 | `claudeWarningPercent` | Int | 25 |
 | `claudeCriticalPercent` | Int | 10 |
 

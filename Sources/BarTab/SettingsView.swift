@@ -17,7 +17,7 @@ struct SettingsView: View {
     init(model: AppModel) {
         self.model = model
         _viewModel = StateObject(wrappedValue: SettingsViewModel(settings: model.settings) { [weak model] in
-            model?.recomputeBarState()
+            model?.settingsChanged()
         })
     }
 
@@ -79,6 +79,16 @@ struct SettingsView: View {
                     "Critical", text: $viewModel.criticalGBText, error: viewModel.criticalGBError,
                     onCommit: viewModel.diskFieldsChanged
                 )
+            }
+
+            Section("Claude Usage") {
+                Toggle("Show Claude usage", isOn: Binding(
+                    get: { viewModel.claudeUsageEnabled },
+                    set: { viewModel.claudeUsageEnabled = $0 }
+                ))
+                Text("Reads Claude Code's sign-in from your Keychain. macOS will ask permission the first time; declining turns this off and nothing will ask again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Claude Thresholds (% remaining)") {

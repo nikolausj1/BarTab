@@ -109,8 +109,16 @@ final class AppModel: ObservableObject {
         diskTimer = t
     }
 
+    /// Polls only when something is continuously displaying the value, i.e.
+    /// when Claude is in the menu bar. With the bar on disk alone the tile is
+    /// visible only while the flyout is open, so a background poll would buy
+    /// nothing and — because each read can raise a Keychain prompt — cost a
+    /// popup every five minutes. The flyout's refresh-on-open still covers it.
     private func startClaudeTimer() {
         claudeTimer?.invalidate()
+        claudeTimer = nil
+        guard settings.claudeUsageEnabled else { return }
+        guard settings.barResources == .claude || settings.barResources == .both else { return }
         let t = Timer(timeInterval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.refreshClaude() }
         }
@@ -141,6 +149,19 @@ final class AppModel: ObservableObject {
                     await self.refreshDisk()
                     await self.refreshClaude()
                 }
+        }
+    }
+
+    /// Called whenever a setting changes. Recomputes the bar and rebuilds the
+    /// Claude timer, since both `barResources` and `claudeUsageEnabled` decide
+    /// whether that timer should exist at all. Re-enabling Claude fetches once
+    /// immediately so the tile fills in without waiting for a tick.
+    func settingsChanged() {
+        recomputeBarState()
+        let wasRunning = claudeTimer != nil
+        startClaudeTimer()
+        if settings.claudeUsageEnabled, !wasRunning {
+            Task { await refreshClaude() }
         }
     }
 
@@ -213,7 +234,31 @@ final class AppModel: ObservableObject {
 
     /// Called on the 5-minute Claude timer and as part of `refresh()`.
     func refreshClaude() async {
+        // Nothing touches the Keychain while the Claude half is off, which is
+        // what guarantees no consent prompt can appear.
+        guard settings.claudeUsageEnabled else {
+            claudeSnapshot = ResourceSnapshot(gauges: [], status: .unavailable(reason: "Claude usage is off"))
+            claudeTileState = .disabledAccessDenied
+            claudeWeeklyPercentRemaining = nil
+            recomputeBarState()
+            return
+        }
+
         let snapshot = await claudeResource.refresh()
+
+        // A declined Keychain prompt turns the feature off for good rather
+        // than being retried on the next tick.
+        if claudeResource.lastFailureReason == .accessDenied {
+            settings.claudeUsageEnabled = false
+            claudeTimer?.invalidate()
+            claudeTimer = nil
+            claudeSnapshot = snapshot
+            claudeTileState = .disabledAccessDenied
+            claudeWeeklyPercentRemaining = nil
+            recomputeBarState()
+            return
+        }
+
         claudeSnapshot = snapshot
         claudeWeeklyPercentRemaining = claudeResource.lastWeeklyPercentRemaining
         recomputeClaudeTileState()
@@ -246,6 +291,8 @@ final class AppModel: ObservableObject {
             switch claudeResource.lastFailureReason {
             case .noCredentials:
                 claudeTileState = .unavailableNoCredentials
+            case .accessDenied:
+                claudeTileState = .disabledAccessDenied
             case .expiredToken:
                 claudeTileState = .unavailableExpiredToken
             case .endpointDead, .none:

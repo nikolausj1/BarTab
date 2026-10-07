@@ -120,6 +120,7 @@ final class AppSettings {
         static let criticalThresholdGB = "criticalThresholdGB"
         static let claudeWarningPercent = "claudeWarningPercent"
         static let claudeCriticalPercent = "claudeCriticalPercent"
+        static let claudeUsageEnabled = "claudeUsageEnabled"
     }
 
     private static let defaultValues: [String: Any] = [
@@ -129,6 +130,7 @@ final class AppSettings {
         Keys.criticalThresholdGB: 20,
         Keys.claudeWarningPercent: 25,
         Keys.claudeCriticalPercent: 10,
+        Keys.claudeUsageEnabled: true,
     ]
 
     private let defaults: UserDefaults
@@ -166,5 +168,15 @@ final class AppSettings {
     var claudeCriticalPercent: Int {
         get { defaults.integer(forKey: Keys.claudeCriticalPercent) }
         set { defaults.set(newValue, forKey: Keys.claudeCriticalPercent) }
+    }
+
+    /// Master switch for the Claude half. When false, nothing reads the
+    /// Keychain, so macOS never raises a consent prompt. Set to false
+    /// automatically and permanently the first time the user declines that
+    /// prompt — a denial is an answer, and re-asking on a timer is what made
+    /// the app a nuisance. Only the Settings toggle turns it back on.
+    var claudeUsageEnabled: Bool {
+        get { defaults.bool(forKey: Keys.claudeUsageEnabled) }
+        set { defaults.set(newValue, forKey: Keys.claudeUsageEnabled) }
     }
 }

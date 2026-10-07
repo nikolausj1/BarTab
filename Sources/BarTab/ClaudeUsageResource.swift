@@ -45,6 +45,7 @@ struct ClaudeMeter: Equatable, Codable {
 /// AppModel reads this alongside the `ResourceSnapshot` to pick tile copy.
 enum ClaudeFailureReason: Equatable {
     case noCredentials
+    case accessDenied
     case expiredToken
     case endpointDead
 }
@@ -57,6 +58,9 @@ enum ClaudeTileState: Equatable {
     case ok
     case stale(asOf: Date)
     case unavailableNoCredentials
+    /// The user declined the Keychain prompt. Sticky: nothing will ask again
+    /// until Claude usage is re-enabled in Settings.
+    case disabledAccessDenied
     case unavailableExpiredToken
     case unavailableEndpointDead
 }
@@ -67,6 +71,7 @@ final class ClaudeUsageResource: Resource {
 
     enum ReasonText {
         static let noCredentials = "Claude Code credentials not found in Keychain"
+        static let accessDenied = "Keychain access denied — Claude usage turned off"
         static let expiredToken = "Claude Code's sign-in has expired"
         static let endpointDead = "Claude usage endpoint unreachable"
     }
@@ -117,8 +122,11 @@ final class ClaudeUsageResource: Resource {
     // MARK: - Resource
 
     func refresh() async -> ResourceSnapshot {
-        guard let token = Self.readAccessToken() else {
-            return fail(.noCredentials)
+        let token: String
+        switch Self.readAccessToken() {
+        case .token(let t): token = t
+        case .notFound: return fail(.noCredentials)
+        case .denied: return fail(.accessDenied)
         }
 
         let request = Self.buildRequest(token: token)
@@ -174,6 +182,7 @@ final class ClaudeUsageResource: Resource {
         let text: String
         switch reason {
         case .noCredentials: text = ReasonText.noCredentials
+        case .accessDenied: text = ReasonText.accessDenied
         case .expiredToken: text = ReasonText.expiredToken
         case .endpointDead: text = ReasonText.endpointDead
         }
@@ -189,7 +198,14 @@ final class ClaudeUsageResource: Resource {
     /// only in local `let`/`var` bindings for the lifetime of this call and
     /// the subsequent HTTP request; it is never logged, printed, or
     /// persisted.
-    private static func readAccessToken() -> String? {
+    enum TokenRead {
+        case token(String)
+        case notFound
+        /// The user said no. Never ask again on a timer.
+        case denied
+    }
+
+    private static func readAccessToken() -> TokenRead {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
@@ -198,11 +214,19 @@ final class ClaudeUsageResource: Resource {
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess, let data = item as? Data else { return nil }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        guard let oauth = json["claudeAiOauth"] as? [String: Any] else { return nil }
-        guard let token = oauth["accessToken"] as? String, !token.isEmpty else { return nil }
-        return token
+
+        // Collapsing every non-success status into "no credentials" is what
+        // made the app nag: a deliberate "Deny" looked identical to "item
+        // missing", so the next poll asked again, and again. A denial is a
+        // decision and must be remembered, not retried.
+        if status == errSecUserCanceled || status == errSecAuthFailed || status == errSecInteractionNotAllowed {
+            return .denied
+        }
+        guard status == errSecSuccess, let data = item as? Data else { return .notFound }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return .notFound }
+        guard let oauth = json["claudeAiOauth"] as? [String: Any] else { return .notFound }
+        guard let token = oauth["accessToken"] as? String, !token.isEmpty else { return .notFound }
+        return .token(token)
     }
 
     // MARK: - HTTP

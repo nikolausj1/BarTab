@@ -1,8 +1,8 @@
 ---
 title: "STATUS - BarTab"
 created: 2026-08-24
-modified: 2026-08-28
-version: 1.5
+modified: 2026-10-07
+version: 1.6
 author: Claude Fable 5 (claude-fable-5)
 tags:
 ---
@@ -19,15 +19,13 @@ Built (v1 complete, in daily use)
 
 ## Health
 
-🟢 v1 built and installed. All five PRD phases complete; acceptance is 10 pass, 0 fail, 3 not verified (each needs a logout, a machine sleep, or a live Claude token). Running from /Applications and registered as a login item. Disk half works fully; the Claude tile is correct but shows "unavailable" until the stored OAuth token is refreshed.
+🟢 v1 built, installed, in daily use. Disk half works and is the feature that matters. The Claude half is now **off by default on this Mac** after it proved a nuisance: it re-raised the macOS Keychain prompt every five minutes, including after Justin declined. Fixed 2026-10-07 — a declined prompt is permanent, polling only happens when the bar actually shows Claude, and a Settings toggle guarantees no Keychain read at all when off.
 
 ## Waiting on Me
 
-- [ ] **Free up disk space — you are at ~21 GB of 494 GB** (~30 min)
-      - unblocks: nothing in this project, but it is the actual problem BarTab was built to warn about, and it is already red
+- [x] ~~**Free up disk space - you are at ~21 GB of 494 GB**~~ **MOVED 2026-10-04 to the new `Data Backup` project**, which owns disk space from now on. It was never really BarTab's: this item's own `unblocks` line said "nothing in this project". BarTab reports free space; it does not fix it. The ~21 GB of 494 GB reading is carried over to `Data Backup` as evidence. (updated via Oracle at Justin's direction, 2026-10-04)
 - [x] ~~**Drag BarTab out of Ice's hidden section so the icon is actually visible**~~ **DONE 2026-08-28.** The gauge is out of Ice's hidden section and visible in the menu bar. (updated via Oracle at Justin's direction, 2026-08-28)
-- [ ] **Re-authenticate Claude Code (`/login` in an interactive terminal), then ask for the spike re-run** (~5 min)
-      - unblocks: the Claude tile showing real numbers, and the decision on whether plan usage is durable enough to keep
+- [x] ~~**Re-authenticate Claude Code, then ask for the spike re-run**~~ **CLOSED 2026-08-31. The Claude tile is retired as a goal.** Justin: "I'm just going to use it for HD status right now. The Claude menu bar app is working just fine for Claude usage tracking." Anthropic ships its own menu bar app and it does this job, so BarTab does not need to. **Do not re-open the plan-usage endpoint work, do not chase the OAuth token, and do not treat the tile's "unavailable" state as a defect.** If a future session wants to tidy up, the honest options are to hide the tile or remove it; that is a product decision for Justin, not a bug. (updated via Oracle at Justin's direction, 2026-08-31)
 
 ## Next Up
 
@@ -37,7 +35,7 @@ Built (v1 complete, in daily use)
 
 ## Biggest Risk
 
-The Claude tile may be honest but useless. Its endpoint is unofficial, and the stored token was found 19 days stale despite active Claude Code use, so the tile could sit in "unavailable" indefinitely. Disk was always the feature that had to work, and it does. The risk is disappointment, not breakage.
+The Claude half may not be worth keeping. Two independent problems, both found in use rather than in review: the stored OAuth token goes stale for weeks at a time, and reading it raises a Keychain consent prompt that cannot be suppressed from inside the app. It is now off, which costs nothing because disk was always the point. The open question is whether to invest further or delete the feature.
 
 ---
 
@@ -65,6 +63,26 @@ The Claude tile may be honest but useless. Its endpoint is unofficial, and the s
 
 ## Lessons
 
+- **Collapsing every Keychain failure into "not found" turns a user's "Deny"
+  into an infinite nag.** `SecItemCopyMatching`'s status distinguishes a
+  missing item (`errSecItemNotFound`) from a refused one
+  (`errSecUserCanceled` / `errSecAuthFailed` / `errSecInteractionNotAllowed`),
+  but a `guard status == errSecSuccess ... else { return nil }` throws that
+  away. BarTab then retried on its next five-minute tick, re-prompting
+  forever; the user's answer was discarded the moment it was given. Branch on
+  the status, and treat a refusal as a persisted decision that disables the
+  feature until explicitly re-enabled.
+- **Do not poll a resource nothing is currently displaying.** BarTab read the
+  Keychain every five minutes even with the menu bar set to disk alone, where
+  the Claude value appears only while the flyout is open. Every one of those
+  reads was both useless and capable of raising a consent prompt. Gate a
+  background poll on whether something is actually showing the value; an
+  on-open refresh covers the rest.
+- **A feature that depends on reading ANOTHER app's Keychain item is
+  structurally prompt-prone**, independent of code signing (BarTab is properly
+  signed with a real team identity and still prompted). Worth weighing before
+  designing a feature around another app's credentials at all.
+
 Candidates for Oracle to vet and promote into the shared Build Guide. **There is
 still no macOS platform section in the Build Guide; the first three below are
 the beginning of one.**
@@ -80,7 +98,7 @@ the beginning of one.**
   **The bug survived five phases of verification because every screenshot was
   taken just after a relaunch, which is exactly when a caching bug is
   invisible.** Any always-on display needs at least one test that changes the
-  underlying value and watches the SAME running instance follow it.
+  underlying value and watches the SAME running instance follow it. (promoted to Build Guide v11.1, 2026-09-03)
 
 - **A menu-bar manager (Ice, Bartender) hides new status items OFF-SCREEN, and
   screenshot verification reads that as "the icon renders nothing."** Justin runs

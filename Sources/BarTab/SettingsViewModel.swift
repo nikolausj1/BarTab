@@ -53,6 +53,17 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    /// Master switch for the Claude half. Off means nothing reads the
+    /// Keychain, so macOS cannot raise a consent prompt.
+    var claudeUsageEnabled: Bool {
+        get { settings.claudeUsageEnabled }
+        set {
+            settings.claudeUsageEnabled = newValue
+            onChange()
+            objectWillChange.send()
+        }
+    }
+
     var barFormat: AppSettings.BarFormat {
         get { settings.barFormat }
         set {
